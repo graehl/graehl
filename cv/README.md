@@ -6,7 +6,7 @@
 
 ## Summary
 
-Research scientist working on transformer models for machine translation, speech, and NLP: domain adaptation, word alignment, hallucination mitigation, and privacy-focused named-entity recognition.
+Research scientist working on transformer models for machine translation, speech, and NLP: domain adaptation, word alignment, hallucination mitigation, privacy-focused named-entity recognition, inference optimization, and distillation.
 
 ## Professional Experience
 
