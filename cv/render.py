@@ -44,10 +44,25 @@ class FormatError(Exception):
 
 
 @dataclass
+class Item:
+    text: str
+    details: list = field(default_factory=list)  # indented '  - ' bullets
+
+
+@dataclass
+class Group:
+    title: str  # '### ' subheading; "" for items directly under '## '
+    items: list = field(default_factory=list)
+
+
+@dataclass
 class Section:
     title: str
     paragraph: str = ""
-    items: list = field(default_factory=list)
+    groups: list = field(default_factory=lambda: [Group("")])
+
+    def items(self):
+        return [i for g in self.groups for i in g.items]
 
 
 @dataclass
@@ -83,14 +98,27 @@ def parse(text):
     for n, l in blocks[3:]:
         if l.startswith("## "):
             sections.append(Section(l[3:].strip()))
-        elif not sections:
+            continue
+        if not sections:
             raise FormatError(f"line {n}: content before first '## ' section")
+        sec = sections[-1]
+        if l.startswith("### "):
+            if sec.groups[-1].title or sec.groups[-1].items:
+                sec.groups.append(Group(l[4:].strip()))
+            else:
+                sec.groups[-1].title = l[4:].strip()
         elif l.startswith("- "):
-            sections[-1].items.append(l[2:].strip())
-        elif sections[-1].items or sections[-1].paragraph:
+            sec.groups[-1].items.append(Item(l[2:].strip()))
+        elif l.startswith("  - "):
+            if not sec.groups[-1].items:
+                raise FormatError(f"line {n}: indented bullet without a parent item")
+            if sec.title not in DATED:
+                raise FormatError(f"line {n}: indented bullets only in {sorted(DATED)}")
+            sec.groups[-1].items[-1].details.append(l[4:].strip())
+        elif sec.items() or sec.paragraph:
             raise FormatError(f"line {n}: unexpected continuation line")
         else:
-            sections[-1].paragraph = l.strip()
+            sec.paragraph = l.strip()
     return Cv(first, last, subtitle, email.group(1), github.group(1), sections)
 
 
@@ -162,13 +190,46 @@ HONORS = {"Honors"}
 
 
 def dated_fields(sec, item):
-    date, a, b = split_dated(item, sec.title)
+    date, a, b = split_dated(item.text, sec.title)
     f = {"a": a, "b": b}
     what, where = DATED[sec.title]
     return date, f[what], f[where]
 
 
 # ---------------------------------------------------------------- awesome-cv
+
+
+def awesome_group(sec, group):
+    if not group.items:
+        return []
+    o = [rf"\cvsubsection{{{tex(group.title)}}}", ""] if group.title else []
+    if sec.title in DATED:
+        o += [r"\begin{cventries}", ""]
+        for item in group.items:
+            date, what, where = dated_fields(sec, item)
+            desc = ""
+            if item.details:
+                desc = "\n".join(
+                    [r"\begin{cvitems}"]
+                    + [rf"\item {{{tex(d)}}}" for d in item.details]
+                    + [r"\end{cvitems}"]
+                )
+            o += [
+                rf"\cventry{{{tex(what)}}}{{{tex(where)}}}{{}}{{{tex(date)}}}{{{desc}}}",
+                "",
+            ]
+        o += [r"\end{cventries}", ""]
+    elif sec.title in HONORS:
+        o.append(r"\begin{cvhonors}")
+        for item in group.items:
+            year, text = split_year(item.text, sec.title)
+            o.append(rf"\cvhonor{{{tex(text)}}}{{}}{{}}{{{year}}}")
+        o += [r"\end{cvhonors}", ""]
+    else:
+        o += [r"\vspace{2mm}", r"\begin{cvitems}"]
+        o += [rf"\item {{{tex(i.text)}}}" for i in group.items]
+        o += [r"\end{cvitems}", r"\vspace{2mm}", ""]
+    return o
 
 
 def awesome(cv):
@@ -193,27 +254,8 @@ def awesome(cv):
         o += [rf"\cvsection{{{tex(sec.title)}}}", ""]
         if sec.paragraph:
             o += [r"\begin{cvparagraph}", tex(sec.paragraph), r"\end{cvparagraph}", ""]
-        if not sec.items:
-            continue
-        if sec.title in DATED:
-            o += [r"\begin{cventries}", ""]
-            for item in sec.items:
-                date, what, where = dated_fields(sec, item)
-                o += [
-                    rf"\cventry{{{tex(what)}}}{{{tex(where)}}}{{}}{{{tex(date)}}}{{}}",
-                    "",
-                ]
-            o += [r"\end{cventries}", ""]
-        elif sec.title in HONORS:
-            o.append(r"\begin{cvhonors}")
-            for item in sec.items:
-                year, text = split_year(item, sec.title)
-                o.append(rf"\cvhonor{{{tex(text)}}}{{}}{{}}{{{year}}}")
-            o += [r"\end{cvhonors}", ""]
-        else:
-            o += [r"\vspace{2mm}", r"\begin{cvitems}"]
-            o += [rf"\item {{{tex(i)}}}" for i in sec.items]
-            o += [r"\end{cvitems}", r"\vspace{2mm}", ""]
+        for group in sec.groups:
+            o += awesome_group(sec, group)
     o.append(r"\end{document}")
     return "\n".join(o) + "\n"
 
@@ -240,17 +282,27 @@ def moderncv(cv):
         o.append(rf"\section{{{tex(sec.title)}}}")
         if sec.paragraph:
             o.append(rf"\cvitem{{}}{{{tex(sec.paragraph)}}}")
-        for item in sec.items:
-            if sec.title in DATED:
-                date, what, where = dated_fields(sec, item)
-                o.append(
-                    rf"\cventry{{{tex(date)}}}{{{tex(what)}}}{{{tex(where)}}}{{}}{{}}{{}}"
-                )
-            elif sec.title in HONORS:
-                year, text = split_year(item, sec.title)
-                o.append(rf"\cvitem{{{year}}}{{{tex(text)}}}")
-            else:
-                o.append(rf"\cvlistitem{{{tex(item)}}}")
+        for group in sec.groups:
+            if group.title and group.items:
+                o.append(rf"\subsection{{{tex(group.title)}}}")
+            for item in group.items:
+                if sec.title in DATED:
+                    date, what, where = dated_fields(sec, item)
+                    desc = ""
+                    if item.details:
+                        desc = "\n".join(
+                            [r"\begin{itemize}"]
+                            + [rf"\item {tex(d)}" for d in item.details]
+                            + [r"\end{itemize}"]
+                        )
+                    o.append(
+                        rf"\cventry{{{tex(date)}}}{{{tex(what)}}}{{{tex(where)}}}{{}}{{}}{{{desc}}}"
+                    )
+                elif sec.title in HONORS:
+                    year, text = split_year(item.text, sec.title)
+                    o.append(rf"\cvitem{{{year}}}{{{tex(text)}}}")
+                else:
+                    o.append(rf"\cvlistitem{{{tex(item.text)}}}")
     o.append(r"\end{document}")
     return "\n".join(o) + "\n"
 
