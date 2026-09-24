@@ -15,6 +15,7 @@ Research scientist working on transformer models for machine translation, speech
   - Word alignment from transformer attention and encoder similarity
   - Hallucination mitigation in neural and LLM-based translation
   - Privacy-focused named-entity recognition model
+  - Inference optimization for production translation and NLP models
 - 2011–2012 — Senior Research Engineer — SDL Language Weaver
 - 2002–2011 — Research Programmer — USC Information Sciences Institute
 
