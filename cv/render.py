@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""Render cv/README.md (the single source of truth) to PDF.
+"""Render cv/README.md (the single source of truth) to cv/graehl-cv.pdf.
 
-Produces one PDF per LaTeX CV class:
-  cv/graehl-cv-awesome.pdf   Awesome-CV (github.com/posquit0/Awesome-CV)
-  cv/graehl-cv-moderncv.pdf  moderncv (CTAN)
-
-Requires `lualatex` from TeX Live with: moderncv, fontawesome5,
-fontawesome6, academicons, tcolorbox, sourcesans, roboto, and the
-LaTeX-recommended collection. The Awesome-CV class is not on CTAN; it is
-downloaded at a pinned commit and checked against a pinned hash.
+Uses the Awesome-CV LaTeX class (github.com/posquit0/Awesome-CV).
+Requires `lualatex` from TeX Live with: fontawesome6, tcolorbox,
+sourcesans, roboto, accsupp, and the LaTeX-recommended collection.
+Awesome-CV is not on CTAN; its class file is downloaded at a pinned
+commit and checked against a pinned hash.
 
 The parser accepts only the forms cv/README.md uses and fails on
 anything else, so a format change surfaces here rather than as a
@@ -28,6 +25,7 @@ from pathlib import Path
 CV_DIR = Path(__file__).resolve().parent
 SOURCE = CV_DIR / "README.md"
 BUILD = CV_DIR / "build"
+OUTPUT = CV_DIR / "graehl-cv.pdf"
 
 AWESOME_SHA = "6701180c71479588dae5d895c4a10a6a572a40a0"
 AWESOME_CLS_SHA256 = "e961a0c6d7330cbfb8d2de31e1e6219d30f826df01965201b540f5695dc377ed"
@@ -260,56 +258,7 @@ def awesome(cv):
     return "\n".join(o) + "\n"
 
 
-# ---------------------------------------------------------------- moderncv
-
-
-def moderncv(cv):
-    o = [
-        r"\documentclass[11pt, letterpaper, sans]{moderncv}",
-        # Color before style: the style copies color1 into its section/rule
-        # colors when loaded (moderncv 2.6).
-        r"\moderncvcolor{blue}",
-        r"\moderncvstyle{classic}",
-        r"\usepackage[scale=0.8]{geometry}",
-        rf"\name{{{tex(cv.first)}}}{{{tex(cv.last)}}}",
-        rf"\title{{{tex(cv.subtitle)}}}",
-        rf"\email{{{cv.email}}}",
-        rf"\social[github]{{{cv.github}}}",
-        r"\begin{document}",
-        r"\makecvtitle",
-    ]
-    for sec in cv.sections:
-        o.append(rf"\section{{{tex(sec.title)}}}")
-        if sec.paragraph:
-            o.append(rf"\cvitem{{}}{{{tex(sec.paragraph)}}}")
-        for group in sec.groups:
-            if group.title and group.items:
-                o.append(rf"\subsection{{{tex(group.title)}}}")
-            for item in group.items:
-                if sec.title in DATED:
-                    date, what, where = dated_fields(sec, item)
-                    desc = ""
-                    if item.details:
-                        desc = "\n".join(
-                            [r"\begin{itemize}"]
-                            + [rf"\item {tex(d)}" for d in item.details]
-                            + [r"\end{itemize}"]
-                        )
-                    o.append(
-                        rf"\cventry{{{tex(date)}}}{{{tex(what)}}}{{{tex(where)}}}{{}}{{}}{{{desc}}}"
-                    )
-                elif sec.title in HONORS:
-                    year, text = split_year(item.text, sec.title)
-                    o.append(rf"\cvitem{{{year}}}{{{tex(text)}}}")
-                else:
-                    o.append(rf"\cvlistitem{{{tex(item.text)}}}")
-    o.append(r"\end{document}")
-    return "\n".join(o) + "\n"
-
-
 # ---------------------------------------------------------------- build
-
-STYLES = {"awesome": awesome, "moderncv": moderncv}
 
 
 def fetch_awesome_cls(dest):
@@ -326,12 +275,11 @@ def fetch_awesome_cls(dest):
     dest.write_bytes(data)
 
 
-def build(style, cv):
-    work = BUILD / style
+def build(cv):
+    work = BUILD
     work.mkdir(parents=True, exist_ok=True)
-    if style == "awesome":
-        fetch_awesome_cls(work / "awesome-cv.cls")
-    (work / "cv.tex").write_text(STYLES[style](cv))
+    fetch_awesome_cls(work / "awesome-cv.cls")
+    (work / "cv.tex").write_text(awesome(cv))
     log = work / "lualatex.log"
     with log.open("w") as f:
         # Two passes settle hyperref/bookmark references.
@@ -343,31 +291,17 @@ def build(style, cv):
                 stderr=subprocess.STDOUT,
             )
             if r.returncode:
-                raise SystemExit(f"{style}: lualatex failed; see {log}")
-    out = CV_DIR / f"graehl-cv-{style}.pdf"
-    shutil.copyfile(work / "cv.pdf", out)
-    print(out.relative_to(CV_DIR.parent))
+                raise SystemExit(f"lualatex failed; see {log}")
+    shutil.copyfile(work / "cv.pdf", OUTPUT)
+    print(OUTPUT.relative_to(CV_DIR.parent))
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument(
-        "styles",
-        nargs="*",
-        metavar="style",
-        help=f"CV classes to render: {', '.join(STYLES)} (default: all)",
-    )
-    args = ap.parse_args()
-    unknown = set(args.styles) - set(STYLES)
-    if unknown:
-        ap.error(f"unknown style(s): {', '.join(sorted(unknown))}")
-    args.styles = args.styles or list(STYLES)
+    argparse.ArgumentParser(description=__doc__.split("\n\n")[0]).parse_args()
     if not shutil.which("lualatex"):
         raise SystemExit("lualatex not found on PATH (install TeX Live)")
     try:
-        cv = parse(SOURCE.read_text())
-        for style in args.styles:
-            build(style, cv)
+        build(parse(SOURCE.read_text()))
     except FormatError as e:
         raise SystemExit(f"{SOURCE.name}: {e}")
 
