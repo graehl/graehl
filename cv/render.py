@@ -70,6 +70,7 @@ class Cv:
     subtitle: str
     email: str
     github: str
+    scholar: str  # Semantic Scholar author URL; "" when absent
     sections: list
 
 
@@ -91,6 +92,9 @@ def parse(text):
     github = re.search(r"\(https://github\.com/([^)/]+)\)", contact)
     if not (email and github):
         raise FormatError(f"line {n3}: expected mailto: and github.com links")
+    scholar = re.search(
+        r"\((https://www\.semanticscholar\.org/author/[^)]+)\)", contact
+    )
 
     sections = []
     for n, l in blocks[3:]:
@@ -117,7 +121,15 @@ def parse(text):
             raise FormatError(f"line {n}: unexpected continuation line")
         else:
             sec.paragraph = l.strip()
-    return Cv(first, last, subtitle, email.group(1), github.group(1), sections)
+    return Cv(
+        first,
+        last,
+        subtitle,
+        email.group(1),
+        github.group(1),
+        scholar.group(1) if scholar else "",
+        sections,
+    )
 
 
 def split_dated(item, where):
@@ -240,6 +252,12 @@ def awesome(cv):
         rf"\position{{{tex(cv.subtitle)}}}",
         rf"\email{{{cv.email}}}",
         rf"\github{{{cv.github}}}",
+    ]
+    if cv.scholar:
+        o.append(
+            rf"\extrainfo{{\href{{{cv.scholar}}}{{\faGraduationCap\ Semantic Scholar}}}}"
+        )
+    o += [
         r"\begin{document}",
         r"\makecvheader",
         rf"\makecvfooter{{}}{{{tex(cv.first)} {tex(cv.last)}~~~\textperiodcentered~~~{tex(cv.subtitle)}}}{{\thepage}}",

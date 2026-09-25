@@ -2,7 +2,7 @@
 
 **Curriculum Vitae**
 
-[graehl@gmail.com](mailto:graehl@gmail.com) · [github.com/graehl](https://github.com/graehl)
+[graehl@gmail.com](mailto:graehl@gmail.com) · [github.com/graehl](https://github.com/graehl) · [Semantic Scholar](https://www.semanticscholar.org/author/Jonathan-Graehl/3223661)
 
 ## Summary
 
@@ -30,7 +30,7 @@ Research scientist working on transformer models for machine translation, speech
 
 ### Journal Articles
 
-- "The Power of Extended Top-Down Tree Transducers," (A. Maletti, J. Graehl, M. Hopkins, and K. Knight), SIAM J. Comput., 39(2), 2009. [pdf](http://www.isi.edu/natural-language/mt/xrtCL.pdf)
+- "The Power of Extended Top-Down Tree Transducers," (A. Maletti, J. Graehl, M. Hopkins, and K. Knight), SIAM J. Comput., 39(2):410–430, 2009. [doi](https://doi.org/10.1137/070699160)
 - "Training Tree Transducers," (J. Graehl, K. Knight, and J. May), Computational Linguistics, 34(3), 2008. [pdf](https://aclanthology.org/J08-3004/)
 - "Machine Transliteration," (K. Knight and J. Graehl), Computational Linguistics, 24(4), 1998. [pdf](https://aclanthology.org/J98-4003/)
 
