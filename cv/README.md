@@ -2,7 +2,7 @@
 
 **Curriculum Vitae**
 
-[graehl@gmail.com](mailto:graehl@gmail.com) · [github.com/graehl](https://github.com/graehl) · [Semantic Scholar](https://www.semanticscholar.org/author/Jonathan-Graehl/3223661)
+[graehl@gmail.com](mailto:graehl@gmail.com) · [github.com/graehl](https://github.com/graehl) · [Google Scholar](https://scholar.google.com/citations?user=H2Lx2VsAAAAJ) · [ACL Anthology](https://aclanthology.org/people/j/jonathan-graehl/)
 
 ## Summary
 
@@ -42,8 +42,9 @@ Research scientist working on transformer models for machine translation, speech
 - "Training Tree Transducers," (J. Graehl and K. Knight), Proc. HLT-NAACL, 2004. [pdf](https://aclanthology.org/N04-1014/)
 - "Machine Transliteration," (K. Knight and J. Graehl), Proc. ACL-EACL, 1997. [pdf](https://aclanthology.org/P97-1017/) — *ACL Test-of-Time Paper Award, 2022*
 
-### Demos, Reports, and Preprints
+### Tutorials, Demos, Reports, and Preprints
 
+- "Machine Translation," (K. Knight and J. Graehl), Tutorial, ANLP/NAACL, 2000.
 - "hyp: A Toolkit for Representing, Manipulating, and Optimizing Hypergraphs," (M. Dreyer and J. Graehl), Proc. NAACL-HLT: Demonstrations, 2015. [pdf](https://aclanthology.org/N15-3003/)
 - "Context-free algorithms," (J. Graehl), arXiv:1502.02328, 2015. [pdf](https://arxiv.org/abs/1502.02328)
 - "Models of Synchronous Grammar Induction for SMT," (P. Blunsom, T. Cohn, A. Lopez, C. Dyer, J. Graehl, J. Botha, V. Eidelman, et al.), Final report, JHU CLSP Summer Workshop (WS'10), 2010. [workshop](https://www.clsp.jhu.edu/workshops/10-workshop/models-of-synchronous-grammar-induction-for-smt)

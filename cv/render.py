@@ -76,8 +76,12 @@ class Cv:
     subtitle: str
     email: str
     github: str
-    scholar: str  # Semantic Scholar author URL; "" when absent
+    scholar: str  # Google Scholar or Semantic Scholar author URL; "" when absent
+    anthology: str  # ACL Anthology author page; "" when absent
     sections: list
+
+    def scholar_label(self):
+        return "Google Scholar" if "scholar.google" in self.scholar else "Semantic Scholar"
 
 
 def parse(text):
@@ -99,8 +103,10 @@ def parse(text):
     if not (email and github):
         raise FormatError(f"line {n3}: expected mailto: and github.com links")
     scholar = re.search(
-        r"\((https://www\.semanticscholar\.org/author/[^)]+)\)", contact
+        r"\((https://scholar\.google\.com/citations\?[^)]+|https://www\.semanticscholar\.org/author/[^)]+)\)",
+        contact,
     )
+    anthology = re.search(r"\((https://aclanthology\.org/people/[^)]+)\)", contact)
 
     sections = []
     for n, l in blocks[3:]:
@@ -138,6 +144,7 @@ def parse(text):
         email.group(1),
         github.group(1),
         scholar.group(1) if scholar else "",
+        anthology.group(1) if anthology else "",
         sections,
     )
 
@@ -263,10 +270,13 @@ def awesome(cv):
         rf"\email{{{cv.email}}}",
         rf"\github{{{cv.github}}}",
     ]
+    extra = []
     if cv.scholar:
-        o.append(
-            rf"\extrainfo{{\href{{{cv.scholar}}}{{\faGraduationCap\ Semantic Scholar}}}}"
-        )
+        extra.append(rf"\href{{{cv.scholar}}}{{\faGraduationCap\ {cv.scholar_label()}}}")
+    if cv.anthology:
+        extra.append(rf"\href{{{cv.anthology}}}{{\faBook\ ACL Anthology}}")
+    if extra:
+        o.append(rf"\extrainfo{{{r'\quad '.join(extra)}}}")
     o += [
         r"\begin{document}",
         r"\makecvheader",
@@ -361,7 +371,9 @@ def html(cv):
         f'<a href="https://github.com/{cv.github}">github.com/{cv.github}</a>',
     ]
     if cv.scholar:
-        contact.append(f'<a href="{cv.scholar}">Semantic Scholar</a>')
+        contact.append(f'<a href="{_html_escape(cv.scholar)}">{cv.scholar_label()}</a>')
+    if cv.anthology:
+        contact.append(f'<a href="{cv.anthology}">ACL Anthology</a>')
     o = [
         "<!doctype html>",
         '<html lang="en"><head><meta charset="utf-8">',
