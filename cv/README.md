@@ -62,3 +62,5 @@ Research scientist working on transformer models for machine translation, speech
 ## Education
 
 - 1994–1998 — University of Southern California — B.S., Computer Engineering and Computer Science
+
+[PDF version of this CV](graehl-cv.pdf)

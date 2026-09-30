@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
-"""Render cv/README.md (the single source of truth) to cv/graehl-cv.pdf.
+"""Render cv/README.md (the single source of truth) to cv/graehl-cv.pdf
+and cv/graehl-cv.html.
 
-Uses the Awesome-CV LaTeX class (github.com/posquit0/Awesome-CV).
+The PDF uses the Awesome-CV LaTeX class (github.com/posquit0/Awesome-CV).
+The HTML is a small self-contained page from the same parsed model; its
+style and article sit between `<!-- cv:start -->` and `<!-- cv:end -->`
+markers so another page can inline that fragment unchanged.
 Requires `lualatex` from TeX Live with: fontawesome6, tcolorbox,
 sourcesans, roboto, accsupp, and the LaTeX-recommended collection.
 Awesome-CV is not on CTAN; its class file is downloaded at a pinned
@@ -26,12 +30,14 @@ CV_DIR = Path(__file__).resolve().parent
 SOURCE = CV_DIR / "README.md"
 BUILD = CV_DIR / "build"
 OUTPUT = CV_DIR / "graehl-cv.pdf"
+HTML_OUTPUT = CV_DIR / "graehl-cv.html"
 
 AWESOME_SHA = "6701180c71479588dae5d895c4a10a6a572a40a0"
 AWESOME_CLS_SHA256 = "e961a0c6d7330cbfb8d2de31e1e6219d30f826df01965201b540f5695dc377ed"
 AWESOME_URL = f"https://raw.githubusercontent.com/posquit0/Awesome-CV/{AWESOME_SHA}/awesome-cv.cls"
 
 DASH = " — "
+PDF_LINK = r"\[[^\]]+\]\(graehl-cv\.pdf\)"
 
 
 class FormatError(Exception):
@@ -98,6 +104,10 @@ def parse(text):
 
     sections = []
     for n, l in blocks[3:]:
+        if re.fullmatch(PDF_LINK, l):
+            # The Markdown links to its own PDF rendition for web readers;
+            # the PDF itself omits that line.
+            continue
         if l.startswith("## "):
             sections.append(Section(l[3:].strip()))
             continue
@@ -276,6 +286,112 @@ def awesome(cv):
     return "\n".join(o) + "\n"
 
 
+# ---------------------------------------------------------------- html
+
+_HTML_CSS = """\
+.cv{--ink:#192c3d;--blue:#0395de;--muted:#526477;--rule:#d5e1e9;color:var(--ink);font:11pt/1.42 "Source Sans 3","Source Sans Pro","Segoe UI",Helvetica,Arial,sans-serif}
+.cv h1,.cv h2,.cv h3{font-family:Roboto,"Segoe UI",Helvetica,Arial,sans-serif;font-weight:700}
+.cv h1{font-size:24pt;line-height:1.1;letter-spacing:-.025em;margin:0}
+.cv .subtitle{font-size:12pt;color:var(--muted);margin:2px 0 4px}
+.cv .contact{margin:0 0 6px}.cv .contact a+a::before{content:" · ";color:var(--muted)}
+.cv h2{font-size:13pt;color:#126a98;border-bottom:2px solid var(--blue);padding-bottom:3px;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.05em}
+.cv h3{font-size:11pt;margin:12px 0 5px}
+.cv p{margin:0 0 8px}.cv ul{margin:0 0 6px;padding-left:1.25em}.cv li{margin:0 0 4px}
+.cv .entries{list-style:none;padding:0}.cv .entries>li{display:grid;grid-template-columns:7.5em 1fr;gap:0 12px;margin:0 0 8px}
+.cv .date{color:var(--muted);font-variant-numeric:tabular-nums}.cv .where{color:var(--muted)}
+.cv .entries ul{margin:3px 0 0;padding-left:1.1em}.cv .entries ul li{margin:0 0 2px}
+.cv .pdf{margin-top:20px;font-size:9.5pt;color:var(--muted)}
+.cv a{color:#126a98;text-decoration:none}.cv a:hover{text-decoration:underline}
+@media (max-width:600px){.cv .entries>li{grid-template-columns:1fr}.cv .date{font-size:9.5pt}}
+"""
+
+
+def _html_escape(s):
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def html_inline(md):
+    """Markdown inline subset (links, bold, italic) -> HTML."""
+    out, pos = [], 0
+    for m in _INLINE.finditer(md):
+        out.append(_html_escape(md[pos : m.start()]))
+        if m.group(1) is not None:
+            url = m.group(2).replace('"', "%22")
+            out.append(f'<a href="{url}">{html_inline(m.group(1))}</a>')
+        elif m.group(3) is not None:
+            out.append(f"<strong>{html_inline(m.group(3))}</strong>")
+        else:
+            out.append(f"<em>{html_inline(m.group(4))}</em>")
+        pos = m.end()
+    out.append(_html_escape(md[pos:]))
+    return "".join(out)
+
+
+def html_group(sec, group):
+    if not group.items:
+        return []
+    o = [f"<h3>{html_inline(group.title)}</h3>"] if group.title else []
+    if sec.title in DATED:
+        o.append('<ul class="entries">')
+        for item in group.items:
+            date, what, where = dated_fields(sec, item)
+            o.append(
+                f'<li><span class="date">{html_inline(date)}</span><div><strong>{html_inline(what)}</strong>'
+                f' <span class="where">· {html_inline(where)}</span>'
+            )
+            if item.details:
+                o.append("<ul>" + "".join(f"<li>{html_inline(d)}</li>" for d in item.details) + "</ul>")
+            o.append("</div></li>")
+        o.append("</ul>")
+    elif sec.title in HONORS:
+        o.append('<ul class="entries">')
+        for item in group.items:
+            year, text = split_year(item.text, sec.title)
+            o.append(f'<li><span class="date">{year}</span><div>{html_inline(text)}</div></li>')
+        o.append("</ul>")
+    else:
+        o.append("<ul>" + "".join(f"<li>{html_inline(i.text)}</li>" for i in group.items) + "</ul>")
+    return o
+
+
+def html(cv):
+    name = f"{html_inline(cv.first)} {html_inline(cv.last)}"
+    contact = [
+        f'<a href="mailto:{cv.email}">{cv.email}</a>',
+        f'<a href="https://github.com/{cv.github}">github.com/{cv.github}</a>',
+    ]
+    if cv.scholar:
+        contact.append(f'<a href="{cv.scholar}">Semantic Scholar</a>')
+    o = [
+        "<!doctype html>",
+        '<html lang="en"><head><meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        f"<title>{name} — {html_inline(cv.subtitle)}</title>",
+        "<style>body{margin:0;background:#edf2f5}main{max-width:8.5in;margin:24px auto;padding:.6in .7in;background:#fff}"
+        "@media (max-width:600px){main{margin:0;padding:20px}}</style>",
+        "</head><body><main>",
+        "<!-- cv:start -->",
+        f"<style>{_HTML_CSS}</style>",
+        '<article class="cv">',
+        f"<header><h1>{name}</h1><p class=\"subtitle\">{html_inline(cv.subtitle)}</p>"
+        f'<p class="contact">{"".join(contact)}</p></header>',
+    ]
+    for sec in cv.sections:
+        o.append(f"<section><h2>{html_inline(sec.title)}</h2>")
+        if sec.paragraph:
+            o.append(f"<p>{html_inline(sec.paragraph)}</p>")
+        for group in sec.groups:
+            o += html_group(sec, group)
+        o.append("</section>")
+    o += [
+        f'<p class="pdf"><a href="{OUTPUT.name}">PDF version of this CV</a></p>',
+        "</article>",
+        "<!-- cv:end -->",
+        "</main></body></html>",
+    ]
+    return "\n".join(o) + "\n"
+
+
 # ---------------------------------------------------------------- build
 
 
@@ -312,6 +428,8 @@ def build(cv):
                 raise SystemExit(f"lualatex failed; see {log}")
     shutil.copyfile(work / "cv.pdf", OUTPUT)
     print(OUTPUT.relative_to(CV_DIR.parent))
+    HTML_OUTPUT.write_text(html(cv))
+    print(HTML_OUTPUT.relative_to(CV_DIR.parent))
 
 
 def main():
